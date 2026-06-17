@@ -1,0 +1,15 @@
+package ht.oni.cin.domain.model;
+
+public enum AuditEventType {
+    SESSION_OPENED,
+    SESSION_CLOSED,
+    IMAGE_UPLOADED,
+    OCR_COMPLETED,
+    VALIDATION_CONFIRMED,
+    DATA_READ,
+    DATA_EXPORTED,
+    DATA_MODIFIED,
+    RATE_LIMIT_EXCEEDED,
+    SESSION_LIMIT_EXCEEDED,
+    INSTANCE_REGISTERED
+}

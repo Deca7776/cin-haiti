@@ -1,0 +1,31 @@
+# Build
+target/
+frontend/dist/
+frontend/node_modules/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Secrets & env
+.env
+.env.local
+.env.*.local
+
+# Données locales (ne pas versionner)
+data/cin_local*
+data/photos/
+data/h2/
+
+# Maven embarqué (utiliser Maven système ou installer via README)
+.tools/
+
+# Logs & temp
+*.log
+*.tmp
+DumpOcr.java
+
+# OS
+Thumbs.db

@@ -1,0 +1,36 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  datasource:
+    url: jdbc:h2:file:./data/cin_local;AUTO_SERVER=TRUE;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.dialect.H2Dialect
+    open-in-view: false
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+cin:
+  ocr:
+    local-fallback: false
+    tesseract-data-path: ./data/tessdata
+    language: fra
+  jwt:
+    dev-secret: DevSecretKeyForCINDemoOnlyChangeInProduction123456
+
+logging:
+  level:
+    ht.oni.cin: INFO
+
+server:
+  port: ${SERVER_PORT:8081}

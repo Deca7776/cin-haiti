@@ -1,0 +1,79 @@
+spring:
+  application:
+    name: cin-microservice
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:cin_db}
+    username: ${DB_USER:cin_user}
+    password: ${DB_PASSWORD:cin_secret}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: America/Port-au-Prince
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+cin:
+  session:
+    ttl-minutes: ${SESSION_TTL_MINUTES:10}
+    max-per-operator: ${MAX_SESSIONS_PER_OPERATOR:10}
+  ocr:
+    confidence-threshold: ${OCR_CONFIDENCE_THRESHOLD:80}
+    tesseract-data-path: ${TESSERACT_DATA_PATH:}
+    language: fra+hat
+  rate-limit:
+    api-requests-per-minute: ${RATE_LIMIT_API:100}
+    enabled: true
+  encryption:
+    aes-key: ${AES_ENCRYPTION_KEY:0123456789ABCDEF0123456789ABCDEF}
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:}
+    issuer: ${JWT_ISSUER:cin-iam}
+    dev-secret: ${JWT_DEV_SECRET:DevSecretKeyForCINDemoOnlyChangeInProduction123456}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:cin-photos}
+  instances:
+    max-allowed: ${MAX_INSTANCES:5}
+    registration-token: ${INSTANCE_REGISTRATION_TOKEN:change-me-in-production}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+
+logging:
+  level:
+    ht.oni.cin: INFO
+    org.springframework.security: WARN
