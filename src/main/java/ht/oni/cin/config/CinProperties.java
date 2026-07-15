@@ -32,7 +32,9 @@ public class CinProperties {
         private double confidenceThreshold = 80.0;
         private String tesseractDataPath = "";
         private String language = "fra";
-        private boolean localFallback = false;
+        private String serviceUrl = "";
+        private int serviceTimeoutMs = 3000;
+        private boolean localFallback = true;
     }
 
     @Getter

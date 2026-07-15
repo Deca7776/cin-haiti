@@ -39,6 +39,9 @@ cin:
     confidence-threshold: ${OCR_CONFIDENCE_THRESHOLD:80}
     tesseract-data-path: ${TESSERACT_DATA_PATH:}
     language: fra+hat
+    service-url: ${OCR_SERVICE_URL:}
+    service-timeout-ms: ${OCR_SERVICE_TIMEOUT_MS:3000}
+    local-fallback: ${OCR_LOCAL_FALLBACK:true}
   rate-limit:
     api-requests-per-minute: ${RATE_LIMIT_API:100}
     enabled: true

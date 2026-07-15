@@ -24,7 +24,7 @@ public class OcrService {
     private final HaitianCinParser haitianCinParser;
     private final CinRoiOcrService cinRoiOcrService;
     private final ImageProcessingService imageProcessingService;
-    private final TesseractRunner tesseractRunner;
+    private final OcrEngine ocrEngine;
 
     /** OCR hybride : zones ROI (prioritaire) + texte intégral (secours). */
     public OcrExtractionResult extract(byte[] rawImageBytes) {
@@ -91,7 +91,7 @@ public class OcrService {
         if (image == null) throw new IllegalArgumentException("Image illisible");
         StringBuilder allText = new StringBuilder();
         for (int psm : PSM_MODES) {
-            allText.append(tesseractRunner.recognize(image, psm)).append('\n');
+            allText.append(ocrEngine.recognize(image, psm)).append('\n');
         }
         return allText.toString();
     }

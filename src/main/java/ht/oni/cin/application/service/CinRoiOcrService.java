@@ -42,7 +42,7 @@ public class CinRoiOcrService {
     private static final Pattern NIN = Pattern.compile("\\b(\\d{10,13})\\b");
     private static final Pattern NAME = Pattern.compile("[A-ZÉÈÊËÀÂÄÙÛÜÔÖÎÏÇ'\\-]{3,}");
 
-    private final TesseractRunner tesseractRunner;
+    private final OcrEngine ocrEngine;
     private final ImageProcessingService imageProcessingService;
 
     public Map<String, OcrFieldResult> extract(byte[] rawImageBytes, double threshold) {
@@ -55,7 +55,7 @@ public class CinRoiOcrService {
                 try {
                     BufferedImage crop = imageProcessingService.cropRelative(card, region.x, region.y, region.w, region.h);
                     BufferedImage scaled = imageProcessingService.scaleForOcr(crop);
-                    String text = tesseractRunner.recognize(scaled, region.psm);
+                    String text = ocrEngine.recognize(scaled, region.psm);
                     String value = cleanField(region.fieldKey, text);
                     if (value != null && !value.isBlank()) {
                         fields.put(region.fieldKey, OcrFieldResult.of(

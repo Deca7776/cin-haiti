@@ -2,20 +2,40 @@ package ht.oni.cin.application.service;
 
 import ht.oni.cin.config.CinProperties;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.Tesseract;
-import net.sourceforge.tess4j.TesseractException;
 import org.springframework.stereotype.Component;
 
 import java.awt.image.BufferedImage;
 import java.nio.file.Path;
 
+/**
+ * Moteur OCR : service PaddleOCR isolé si configuré (cin.ocr.service-url), avec repli
+ * automatique sur Tesseract local si le service distant est indisponible ou en erreur.
+ */
 @Component
 @RequiredArgsConstructor
-class TesseractRunner {
+@Slf4j
+class OcrEngine {
 
     private final CinProperties properties;
+    private final PaddleOcrClient paddleOcrClient;
 
-    String recognize(BufferedImage image, int pageSegMode) throws TesseractException {
+    String recognize(BufferedImage image, int pageSegMode) throws Exception {
+        if (paddleOcrClient.isEnabled()) {
+            try {
+                return paddleOcrClient.recognize(image, pageSegMode);
+            } catch (Exception e) {
+                if (!properties.getOcr().isLocalFallback()) {
+                    throw e;
+                }
+                log.warn("Service OCR distant indisponible, repli sur Tesseract local: {}", e.getMessage());
+            }
+        }
+        return recognizeLocally(image, pageSegMode);
+    }
+
+    private String recognizeLocally(BufferedImage image, int pageSegMode) throws Exception {
         Tesseract tesseract = new Tesseract();
         tesseract.setDatapath(resolveTessdataPath());
         tesseract.setLanguage(resolveLanguage());
