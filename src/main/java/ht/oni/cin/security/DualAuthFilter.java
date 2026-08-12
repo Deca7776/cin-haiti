@@ -55,13 +55,17 @@ public class DualAuthFilter extends OncePerRequestFilter {
             return;
         }
         String token = auth.substring(7);
+        String operatorId;
         try {
-            String operatorId = jwtValidator.validateAndExtractSubject(token);
-            SecurityContextHolder.getContext().setAuthentication(new OperatorPrincipal(operatorId, token));
-            chain.doFilter(request, response);
+            operatorId = jwtValidator.validateAndExtractSubject(token);
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT invalide ou expiré");
+            return;
         }
+        // En dehors du try/catch : une exception levee plus loin dans la chaine (controleur, service)
+        // ne doit pas etre faussement rapportee comme un echec d'authentification JWT.
+        SecurityContextHolder.getContext().setAuthentication(new OperatorPrincipal(operatorId, token));
+        chain.doFilter(request, response);
     }
 
     private void authenticateApiClient(HttpServletRequest request, HttpServletResponse response,
@@ -81,6 +85,7 @@ public class DualAuthFilter extends OncePerRequestFilter {
         }
 
         String token = auth.substring(7);
+        ApiClientPrincipal principal;
         try {
             jwtValidator.validateAndExtractSubject(token);
             String hash = sha256(apiKey);
@@ -89,12 +94,15 @@ public class DualAuthFilter extends OncePerRequestFilter {
                     .filter(c -> c.getExpiresAt().isAfter(Instant.now()))
                     .findFirst()
                     .orElseThrow(() -> new SecurityException("Clé API invalide"));
-
-            SecurityContextHolder.getContext().setAuthentication(new ApiClientPrincipal(client, apiKey));
-            chain.doFilter(request, response);
+            principal = new ApiClientPrincipal(client, apiKey);
         } catch (Exception e) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Authentification système tiers échouée");
+            return;
         }
+        // En dehors du try/catch : une exception levee plus loin dans la chaine ne doit pas etre
+        // faussement rapportee comme un echec d'authentification.
+        SecurityContextHolder.getContext().setAuthentication(principal);
+        chain.doFilter(request, response);
     }
 
     private String sha256(String input) {

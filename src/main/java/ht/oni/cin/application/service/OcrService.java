@@ -91,7 +91,16 @@ public class OcrService {
         if (image == null) throw new IllegalArgumentException("Image illisible");
         StringBuilder allText = new StringBuilder();
         for (int psm : PSM_MODES) {
-            allText.append(ocrEngine.recognize(image, psm)).append('\n');
+            String text = ocrEngine.recognize(image, psm);
+            allText.append(text).append('\n');
+            if (!text.isBlank()) {
+                // Le moteur PaddleOCR distant (prioritaire) ignore totalement le PSM : refaire
+                // ce meme appel avec un autre mode renverrait exactement le meme resultat, pour
+                // un cout de plusieurs secondes par tentative. On ne boucle sur les autres PSM
+                // (utiles uniquement pour le repli Tesseract local) que si la passe precedente
+                // n'a rien produit.
+                break;
+            }
         }
         return allText.toString();
     }

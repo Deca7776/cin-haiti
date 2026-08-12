@@ -81,6 +81,7 @@ services:
       MAX_INSTANCES: "5"
       OCR_SERVICE_URL: http://ocr-service:9000
       OCR_LOCAL_FALLBACK: "true"
+      OCR_SERVICE_TIMEOUT_MS: "30000"
     ports:
       - "8080:8080"
     healthcheck:
