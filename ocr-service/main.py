@@ -23,8 +23,12 @@ def healthz():
 
 
 @app.post("/recognize")
-async def recognize(file: UploadFile = File(...), psm: int = Form(default=7)):
-    data = await file.read()
+def recognize(file: UploadFile = File(...), psm: int = Form(default=7)):
+    # Endpoint synchrone (pas "async def") : FastAPI l'execute alors dans un thread du pool
+    # plutot que directement sur la boucle d'evenements. L'inference PaddleOCR est bloquante et
+    # gourmande en CPU ; en "async def" elle gelait la boucle entiere le temps de l'inference,
+    # y compris pour /healthz — d'ou un service completement injoignable pendant les gros calculs.
+    data = file.file.read()
     image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
     if image is None:
         return {"text": "", "confidence": 0.0}

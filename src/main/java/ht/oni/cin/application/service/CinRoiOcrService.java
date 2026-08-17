@@ -24,17 +24,26 @@ public class CinRoiOcrService {
 
     private record Region(String fieldKey, double x, double y, double w, double h, double confidence, int psm) {}
 
+    /*
+     * Layout reel de la CIN ONI (confirme sur deux specimens le 17/08/2026) : DEUX colonnes, pas
+     * une seule. Colonne gauche : Prénom/Non (peut faire 2 lignes), Nom/Siyati, Lieu de Naissance,
+     * Date d'émission. Colonne droite, alignee sur les memes rangees : Numéro de carte (en-tete),
+     * Sexe/Sèks, Nationalité, Date de Naissance, Date d'expiration, Numéro d'identification unique.
+     * Precedemment, sexe/nationalite/date_naissance/date_expiration/nin_display etaient recadres
+     * dans la colonne de GAUCHE (memes x que prenom/nom) — ils ne lisaient donc jamais le bon
+     * endroit de la carte, d'ou des valeurs manquantes ou aberrantes.
+     */
     private static final Region[] REGIONS = {
-            new Region("numero_carte", 0.48, 0.06, 0.50, 0.11, 93, 7),
-            new Region("prenom", 0.33, 0.21, 0.63, 0.07, 91, 7),
-            new Region("nom", 0.33, 0.27, 0.63, 0.07, 91, 7),
-            new Region("sexe", 0.33, 0.33, 0.18, 0.06, 90, 7),
-            new Region("nationalite", 0.33, 0.38, 0.63, 0.07, 88, 7),
-            new Region("date_naissance", 0.33, 0.44, 0.38, 0.06, 91, 7),
-            new Region("lieu_naissance", 0.33, 0.49, 0.63, 0.11, 89, 6),
-            new Region("date_emission", 0.33, 0.61, 0.28, 0.07, 89, 7),
-            new Region("date_expiration", 0.52, 0.61, 0.28, 0.07, 89, 7),
-            new Region("nin_display", 0.33, 0.74, 0.63, 0.12, 92, 7),
+            new Region("numero_carte", 0.48, 0.03, 0.50, 0.10, 93, 7),
+            new Region("prenom", 0.32, 0.16, 0.34, 0.14, 91, 7),
+            new Region("sexe", 0.68, 0.16, 0.28, 0.08, 90, 7),
+            new Region("nom", 0.32, 0.30, 0.34, 0.08, 91, 7),
+            new Region("nationalite", 0.68, 0.30, 0.30, 0.08, 88, 7),
+            new Region("lieu_naissance", 0.32, 0.42, 0.34, 0.10, 89, 6),
+            new Region("date_naissance", 0.68, 0.42, 0.28, 0.07, 91, 7),
+            new Region("date_emission", 0.32, 0.55, 0.34, 0.07, 89, 7),
+            new Region("date_expiration", 0.68, 0.55, 0.28, 0.07, 89, 7),
+            new Region("nin_display", 0.68, 0.68, 0.30, 0.08, 92, 7),
     };
 
     private static final Pattern DATE = Pattern.compile("(\\d{2})[\\-/.](\\d{2})[\\-/.](\\d{4})");
@@ -96,7 +105,7 @@ public class CinRoiOcrService {
         return switch (key) {
             case "numero_carte" -> firstMatch(CARD_NUM, text.toUpperCase());
             case "prenom", "nom" -> extractName(text);
-            case "sexe" -> text.toUpperCase().contains("F") ? "F" : text.toUpperCase().contains("M") ? "M" : null;
+            case "sexe" -> text.toUpperCase().contains("M") ? "M" : text.toUpperCase().contains("F") ? "F" : null;
             case "nationalite" -> toNationality(text);
             case "date_naissance", "date_emission", "date_expiration" -> extractDate(text);
             case "lieu_naissance" -> cleanLieu(text);
@@ -142,7 +151,23 @@ public class CinRoiOcrService {
         if (cleaned.toLowerCase().contains("ouest") && cleaned.toLowerCase().contains("port")) {
             return "Département Ouest, Commune Port-au-Prince";
         }
-        return cleaned.length() > 5 ? cleaned : null;
+        if (cleaned.length() <= 5) return null;
+        return correctPlaceOcr(cleaned);
+    }
+
+    /**
+     * Corrige les erreurs de lecture OCR sur un lieu du type "DEPARTEMENT-COMMUNE" (ex : "UUFST-DLLMAS"
+     * lu depuis "OUEST-DELMAS") en rapprochant chaque partie du vocabulaire ferme des departements/
+     * communes haitiens. Ne touche pas au texte si aucune correspondance suffisamment proche n'est trouvee.
+     */
+    private String correctPlaceOcr(String text) {
+        String[] parts = text.split("-", 2);
+        if (parts.length == 2) {
+            String dept = HaitianCinParser.correctAgainstKnownPlace(parts[0].trim());
+            String commune = HaitianCinParser.correctAgainstKnownPlace(parts[1].trim());
+            return dept + "-" + commune;
+        }
+        return HaitianCinParser.correctAgainstKnownPlace(text);
     }
 
     private String firstMatch(Pattern pattern, String text) {

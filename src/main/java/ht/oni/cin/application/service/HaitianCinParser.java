@@ -31,7 +31,92 @@ public class HaitianCinParser {
             "Nord-Ouest", "Ouest", "Sud", "Sud-Est"
     );
 
+    /**
+     * Les 148 communes d'Haïti, regroupees par departement — source :
+     * https://en.wikipedia.org/wiki/List_of_communes_of_Haiti (recupere le 17/08/2026).
+     * Vocabulaire ferme utilise pour corriger les erreurs de lecture OCR par correspondance approchee.
+     */
+    public static final List<String> COMMUNES = List.of(
+            // Artibonite
+            "Dessalines", "Desdunes", "Grande-Saline", "Petite Rivière de l'Artibonite", "Gonaïves",
+            "Ennery", "L'Estère", "Gros-Morne", "Anse-Rouge", "Terre-Neuve", "Marmelade",
+            "Saint-Michel-de-l'Atalaye", "Saint-Marc", "Les Arcadins", "La Chapelle", "Liancourt",
+            "Verrettes", "Montrouis",
+            // Centre
+            "Cerca-la-Source", "Thomassique", "Hinche", "Cerca-Carvajal", "Maïssade", "Thomonde",
+            "Lascahobas", "Baptiste", "Belladère", "Savanette", "Mirebalais", "Boucan-Carré", "Saut-d'Eau",
+            // Grand'Anse
+            "Anse-d'Hainault", "Dame-Marie", "Les Irois", "Beaumont", "Corail", "Pestel", "Roseaux",
+            "Jérémie", "Abricots", "Bonbon", "Chambellan", "Marfranc", "Moron",
+            // Nippes
+            "Anse-à-Veau", "Arnaud", "L'Asile", "Petit-Trou-de-Nippes", "Plaisance-du-Sud", "Baradères",
+            "Grand-Boucan", "Miragoâne", "Fonds-des-Nègres", "Paillant", "Petite-Rivière-de-Nippes",
+            // Nord
+            "Acul-du-Nord", "Milot", "Plaine-du-Nord", "Borgne", "Port-Margot", "Cap-Haïtien", "Limonade",
+            "Quartier-Morin", "Grande-Rivière-du-Nord", "Bahon", "Limbé", "Bas-Limbé", "Plaisance",
+            "Pilate", "Saint-Raphaël", "Dondon", "La Victoire", "Pignon", "Ranquitte",
+            // Nord-Est
+            "Fort-Liberté", "Perches", "Ferrier", "Ouanaminthe", "Capotille", "Mont-Organisé",
+            "Trou-du-Nord", "Caracol", "Sainte-Suzanne", "Grand-Bassin", "Terrier-Rouge", "Vallières",
+            "Carice", "Mombin-Crochu",
+            // Nord-Ouest
+            "Môle-Saint-Nicolas", "Baie-de-Henne", "Bombardopolis", "Jean-Rabel", "Port-de-Paix",
+            "Bassin-Bleu", "Chansolme", "Lapointe", "La Tortue", "Saint-Louis-du-Nord", "Anse-à-Foleur",
+            // Ouest
+            "Arcahaie", "Cabaret", "Croix-des-Bouquets", "Cornillon", "Fonds-Verrettes", "Ganthier",
+            "Thomazeau", "Anse-à-Galets", "Pointe-à-Raquette", "Léogâne", "Grand-Goâve", "Petit-Goâve",
+            "Port-au-Prince", "Carrefour", "Cité Soleil", "Delmas", "Gressier", "Kenscoff",
+            "Pétion-Ville", "Tabarre",
+            // Sud-Est
+            "Bainet", "Côtes-de-Fer", "Belle-Anse", "Anse-à-Pitres", "Grand-Gosier", "Thiotte",
+            "Jacmel", "Cayes-Jacmel", "La Vallée", "Marigot",
+            // Sud
+            "Aquin", "Cavaillon", "Saint-Louis-du-Sud", "Fond des Blancs", "Les Cayes", "Camp-Perrin",
+            "Chantal", "Île-à-Vache", "Maniche", "Torbeck", "Chardonnières", "Les Anglais", "Tiburon",
+            "Côteaux", "Port-à-Piment", "Roche-à-Bateaux", "Port-Salut", "Arniquet", "Saint-Jean-du-Sud"
+    );
+
     private static final Pattern DATE = Pattern.compile("(?<![\\d])(?:-)?(\\d{2})[\\-/.](\\d{2})[\\-/.](\\d{4})\\b");
+
+    /**
+     * Corrige un mot possiblement mal lu par l'OCR en le rapprochant du terme connu (departement ou
+     * commune) le plus proche, si l'ecart (distance de Levenshtein) reste raisonnable par rapport a
+     * la longueur du mot. Ex: "UUFST" (lu depuis "OUEST") -> "Ouest".
+     */
+    public static String correctAgainstKnownPlace(String word) {
+        if (word == null || word.isBlank()) return word;
+        String best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (String known : allKnownPlaces()) {
+            int distance = levenshtein(word.toUpperCase(), known.toUpperCase());
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = known;
+            }
+        }
+        // Tolerance proportionnelle a la longueur : jusqu'a ~30% de caracteres divergents.
+        int maxAllowed = Math.max(1, (int) Math.ceil(word.length() * 0.3));
+        return (best != null && bestDistance <= maxAllowed) ? best : word;
+    }
+
+    private static List<String> allKnownPlaces() {
+        List<String> all = new ArrayList<>(DEPARTEMENTS);
+        all.addAll(COMMUNES);
+        return all;
+    }
+
+    private static int levenshtein(String a, String b) {
+        int[][] dp = new int[a.length() + 1][b.length() + 1];
+        for (int i = 0; i <= a.length(); i++) dp[i][0] = i;
+        for (int j = 0; j <= b.length(); j++) dp[0][j] = j;
+        for (int i = 1; i <= a.length(); i++) {
+            for (int j = 1; j <= b.length(); j++) {
+                int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+                dp[i][j] = Math.min(Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1), dp[i - 1][j - 1] + cost);
+            }
+        }
+        return dp[a.length()][b.length()];
+    }
 
     public static boolean isStopword(String upper) {
         return NAME_STOPWORDS.contains(upper);
@@ -41,7 +126,10 @@ public class HaitianCinParser {
             "HAITI", "HAÏTI", "REPIBLIK", "REPUBLIQUE", "CARTE", "IDENTIFICATION", "NATIONALE", "NASYONAL",
             "NATIONALITE", "NASYONALITE", "HARTIEN", "HAÏTIEN", "AYISYEN", "OUEST", "COMMUNE", "PORT",
             "PRINCE", "DEPARTEMENT", "SIGNATURE", "NUMERO", "NIMERO", "RNCS", "CPP", "SYON", "NASY", "NAISSANCE",
-            "SEXE", "SEKS", "SIYATI"
+            "SEXE", "SEKS", "SIYATI",
+            // Bilingue "Prénom / Non" et "Nom / Siyati" : si le libelle deborde dans le recadrage ROI,
+            // ces mots ne doivent jamais etre pris pour la valeur elle-meme.
+            "NON", "NOM", "PRENOM", "PRÉNOM"
     );
 
     public Map<String, OcrFieldResult> parse(String rawText, double threshold) {

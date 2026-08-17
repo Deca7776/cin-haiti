@@ -43,6 +43,10 @@ services:
   ocr-service:
     build: ./ocr-service
     container_name: cin-ocr-service
+    # PaddleOCR bloque le seul worker uvicorn le temps d'une inference CPU longue ; sans init
+    # process, un processus fige ne peut plus etre correctement signale/tue par Docker
+    # ("container is zombie and can not be killed" observe le 17/08/2026).
+    init: true
     ports:
       - "9002:9000"
     healthcheck:
