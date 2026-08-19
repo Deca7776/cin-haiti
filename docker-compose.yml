@@ -47,6 +47,13 @@ services:
     # process, un processus fige ne peut plus etre correctement signale/tue par Docker
     # ("container is zombie and can not be killed" observe le 17/08/2026).
     init: true
+    # Le moteur oneDNN de PaddleOCR peut segfaulter (SIGSEGV) sur certaines images plutot que de
+    # lever une exception Python rattrapable -- observe le 19/08/2026 sur un recadrage degenere,
+    # apres deux occurrences absorbees sans probleme par le try/except de /recognize. Un segfault
+    # tue tout le process worker d'un coup ; sans politique de redemarrage, cin-api perdait alors
+    # son moteur OCR primaire pour le reste de la session (repli Tesseract local permanent jusqu'a
+    # intervention manuelle). "unless-stopped" fait remonter le service tout seul.
+    restart: unless-stopped
     ports:
       - "9002:9000"
     healthcheck:
@@ -85,7 +92,10 @@ services:
       MAX_INSTANCES: "5"
       OCR_SERVICE_URL: http://ocr-service:9000
       OCR_LOCAL_FALLBACK: "true"
-      OCR_SERVICE_TIMEOUT_MS: "30000"
+      # /prepare et /layout font tourner PaddleOCR sur la carte entiere (pas juste un petit
+      # recadrage) : sous charge CPU, ca peut depasser 30s (SocketTimeoutException observe le
+      # 19/08/2026 alors que le service traitait la requete avec succes, juste trop lentement).
+      OCR_SERVICE_TIMEOUT_MS: "60000"
     ports:
       - "8080:8080"
     healthcheck:

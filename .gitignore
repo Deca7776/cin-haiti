@@ -2,6 +2,7 @@
 target/
 frontend/dist/
 frontend/node_modules/
+ocr-service/__pycache__/
 
 # IDE
 .idea/

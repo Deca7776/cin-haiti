@@ -22,24 +22,40 @@ public class OcrService {
 
     private final CinProperties properties;
     private final HaitianCinParser haitianCinParser;
+    private final LabelAnchoredOcrService labelAnchoredOcrService;
     private final CinRoiOcrService cinRoiOcrService;
     private final ImageProcessingService imageProcessingService;
     private final OcrEngine ocrEngine;
 
-    /** OCR hybride : zones ROI (prioritaire) + texte intégral (secours). */
+    /**
+     * OCR hybride à trois niveaux : ancrage par libellé (prioritaire — localise chaque champ par
+     * son étiquette bilingue, robuste au cadrage variable d'une photo à l'autre), zones ROI à
+     * coordonnées fixes (secours), texte intégral (dernier recours). Chaque niveau ne remplace un
+     * champ déjà trouvé que s'il est plus confiant (cf. {@link HaitianCinParser#merge}).
+     *
+     * <p>Les niveaux de secours ne tournent que si l'ancrage par libellé n'a pas suffi : chaque
+     * champ ROI est un appel HTTP séparé vers le même service OCR, mono-worker et lié au CPU —
+     * les enchaîner systématiquement (jusqu'à ~20 appels par upload) a déjà fait dépasser le
+     * timeout du service sous charge lors des tests du 19/08/2026. Le libellé ne fait que 2 appels
+     * (préparation + lecture pleine carte) et couvre la carte dans l'immense majorité des cas.</p>
+     */
     public OcrExtractionResult extract(byte[] rawImageBytes) {
         try {
             double threshold = properties.getOcr().getConfidenceThreshold();
 
-            Map<String, OcrFieldResult> roiFields = cinRoiOcrService.extract(rawImageBytes, threshold);
-            Map<String, OcrFieldResult> textFields = extractFromFullText(rawImageBytes, threshold);
+            Map<String, OcrFieldResult> labelFields = labelAnchoredOcrService.extract(rawImageBytes, threshold);
+            boolean labelSufficient = hasRequiredFields(labelFields) && countCardFields(labelFields) >= EXPECTED_CARD_FIELDS - 1;
 
-            Map<String, OcrFieldResult> fields = haitianCinParser.merge(roiFields, textFields);
+            Map<String, OcrFieldResult> roiFields = labelSufficient ? Map.of() : cinRoiOcrService.extract(rawImageBytes, threshold);
+            Map<String, OcrFieldResult> textFields = labelSufficient ? Map.of() : extractFromFullText(rawImageBytes, threshold);
+
+            Map<String, OcrFieldResult> fields = haitianCinParser.merge(labelFields, roiFields);
+            fields = haitianCinParser.merge(fields, textFields);
             int extracted = countCardFields(fields);
             double avg = fields.values().stream().mapToDouble(OcrFieldResult::getConfidence).average().orElse(0);
             boolean hasRequired = hasRequiredFields(fields);
 
-            String method = roiFields.size() >= textFields.size() ? "ROI+texte" : "texte+ROI";
+            String method = labelSufficient ? "libellé" : !labelFields.isEmpty() ? "libellé+ROI+texte" : roiFields.size() >= textFields.size() ? "ROI+texte" : "texte+ROI";
             log.info("OCR {} — {}/{} champs, confiance moy. {}%", method, extracted, EXPECTED_CARD_FIELDS, Math.round(avg));
 
             return OcrExtractionResult.builder()
