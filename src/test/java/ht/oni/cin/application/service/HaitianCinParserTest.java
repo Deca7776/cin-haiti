@@ -47,8 +47,9 @@ class HaitianCinParserTest {
         assertEquals("06/02/2028", fields.get("date_expiration").getValue());
         assertEquals("0123456789", fields.get("nin_display").getValue());
         assertEquals("0000123456789", fields.get("nin").getValue());
-        assertTrue(fields.get("lieu_naissance").getValue().contains("Port-au-Prince"));
-        assertEquals("Ouest", fields.get("departement").getValue());
+        assertEquals("Département Ouest, Commune Port-au-Prince", fields.get("lieu_naissance").getValue());
+        assertFalse(fields.containsKey("departement"),
+                "le departement n'est plus un champ separe — il se deduit de lieu_naissance via la bibliotheque de lieux");
     }
 
     @Test

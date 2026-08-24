@@ -61,12 +61,18 @@ final class CinFieldValueParser {
         return null;
     }
 
+    private static final Pattern DEPT_COMMUNE = Pattern.compile(
+            "(?i)D[eé]partement\\s+([A-Za-zÉÈÊËÀÂÄÙÛÜÔÖÎÏÇ'\\- ]+?),\\s*Commune\\s+(.+)$");
+
     private static String cleanLieu(String text) {
         String cleaned = text.replaceAll("(?i)(Lieu de Naissance|Kote ou f[eè]t|Naissance)[^A-Za-zÉ]*", "")
                 .replaceAll("\\s+", " ")
                 .trim();
-        if (cleaned.toLowerCase().contains("département") || cleaned.toLowerCase().contains("commune")) {
-            return cleaned;
+        Matcher deptCommune = DEPT_COMMUNE.matcher(cleaned);
+        if (deptCommune.find()) {
+            // Le departement est recalcule a partir de la commune (bibliotheque de lieux fiable)
+            // plutot que garde tel que lu par l'OCR — cf. HaitianCinParser.departementForCommune.
+            return HaitianCinParser.canonicalizeLieu(deptCommune.group(1), deptCommune.group(2));
         }
         if (cleaned.toLowerCase().contains("ouest") && cleaned.toLowerCase().contains("port")) {
             return "Département Ouest, Commune Port-au-Prince";
@@ -77,14 +83,19 @@ final class CinFieldValueParser {
 
     /**
      * Corrige les erreurs de lecture OCR sur un lieu du type "DEPARTEMENT-COMMUNE" (ex : "UUFST-DLLMAS"
-     * lu depuis "OUEST-DELMAS") en rapprochant chaque partie du vocabulaire ferme des departements/
-     * communes haitiens. Ne touche pas au texte si aucune correspondance suffisamment proche n'est trouvee.
+     * lu depuis "OUEST-DELMAS") en rapprochant la commune du vocabulaire ferme et en en deduisant le
+     * departement via la bibliotheque de lieux — plus fiable que de corriger le mot departement lui-meme,
+     * plus court et donc plus ambigu face aux erreurs OCR. Ne touche pas au texte si aucune correspondance
+     * suffisamment proche n'est trouvee.
      */
     private static String correctPlaceOcr(String text) {
         String[] parts = text.split("-", 2);
         if (parts.length == 2) {
-            String dept = HaitianCinParser.correctAgainstKnownPlace(parts[0].trim());
-            String commune = HaitianCinParser.correctAgainstKnownPlace(parts[1].trim());
+            String commune = HaitianCinParser.correctAgainstKnownPlace(parts[1].trim(), HaitianCinParser.COMMUNES);
+            String dept = HaitianCinParser.departementForCommune(commune);
+            if (dept == null) {
+                dept = HaitianCinParser.correctAgainstKnownPlace(parts[0].trim(), HaitianCinParser.DEPARTEMENTS);
+            }
             return dept + "-" + commune;
         }
         return HaitianCinParser.correctAgainstKnownPlace(text);

@@ -17,6 +17,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +58,7 @@ public class IdentiteService {
                 .lieuNaissance(request.getLieuNaissance())
                 .sexe(request.getSexe())
                 .adresse(request.getAdresse())
-                .departement(request.getDepartement())
+                .departement(resolveDepartement(request))
                 .dateEmission(parseDate(request.getDateEmission()))
                 .dateExpiration(parseDate(request.getDateExpiration()))
                 .photoRef(photoRef)
@@ -88,6 +90,24 @@ public class IdentiteService {
     public CinIdentiteEntity findById(UUID id) {
         return identiteRepository.findById(id)
                 .orElseThrow(() -> new IdentiteNotFoundException("Identité non trouvée: " + id));
+    }
+
+    private static final Pattern LIEU_DEPARTEMENT = Pattern.compile(
+            "(?i)D[eé]partement\\s+([A-Za-zÉÈÊËÀÂÄÙÛÜÔÖÎÏÇ'\\- ]+?),");
+
+    /**
+     * Le département n'est plus un champ saisi/OCR séparé (cf. lieu_naissance canonicalisé via
+     * la bibliothèque de lieux dans {@link HaitianCinParser}) : on le relit directement depuis le
+     * libellé "Département X, Commune Y" déjà validé, plutôt que de dépendre d'un champ dupliqué
+     * que le front pourrait oublier d'envoyer. On garde request.getDepartement() en repli pour
+     * les clients API historiques qui l'enverraient encore explicitement.
+     */
+    private String resolveDepartement(ValidateIdentiteRequest request) {
+        if (request.getLieuNaissance() != null) {
+            Matcher m = LIEU_DEPARTEMENT.matcher(request.getLieuNaissance());
+            if (m.find()) return m.group(1).trim();
+        }
+        return request.getDepartement();
     }
 
     private LocalDate parseDate(String date) {

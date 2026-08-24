@@ -9,6 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -34,47 +35,55 @@ public class HaitianCinParser {
     /**
      * Les 148 communes d'Haïti, regroupees par departement — source :
      * https://en.wikipedia.org/wiki/List_of_communes_of_Haiti (recupere le 17/08/2026).
-     * Vocabulaire ferme utilise pour corriger les erreurs de lecture OCR par correspondance approchee.
+     * Vocabulaire ferme utilise pour corriger les erreurs de lecture OCR par correspondance approchee,
+     * et pour deriver automatiquement le departement d'une commune reconnue (cf. {@link #departementForCommune}) —
+     * la carte n'a donc pas besoin d'un champ "departement" saisi/extrait a part : une fois la commune
+     * identifiee dans cette bibliotheque, son departement en decoule.
      */
-    public static final List<String> COMMUNES = List.of(
-            // Artibonite
-            "Dessalines", "Desdunes", "Grande-Saline", "Petite Rivière de l'Artibonite", "Gonaïves",
-            "Ennery", "L'Estère", "Gros-Morne", "Anse-Rouge", "Terre-Neuve", "Marmelade",
-            "Saint-Michel-de-l'Atalaye", "Saint-Marc", "Les Arcadins", "La Chapelle", "Liancourt",
-            "Verrettes", "Montrouis",
-            // Centre
-            "Cerca-la-Source", "Thomassique", "Hinche", "Cerca-Carvajal", "Maïssade", "Thomonde",
-            "Lascahobas", "Baptiste", "Belladère", "Savanette", "Mirebalais", "Boucan-Carré", "Saut-d'Eau",
-            // Grand'Anse
-            "Anse-d'Hainault", "Dame-Marie", "Les Irois", "Beaumont", "Corail", "Pestel", "Roseaux",
-            "Jérémie", "Abricots", "Bonbon", "Chambellan", "Marfranc", "Moron",
-            // Nippes
-            "Anse-à-Veau", "Arnaud", "L'Asile", "Petit-Trou-de-Nippes", "Plaisance-du-Sud", "Baradères",
-            "Grand-Boucan", "Miragoâne", "Fonds-des-Nègres", "Paillant", "Petite-Rivière-de-Nippes",
-            // Nord
-            "Acul-du-Nord", "Milot", "Plaine-du-Nord", "Borgne", "Port-Margot", "Cap-Haïtien", "Limonade",
-            "Quartier-Morin", "Grande-Rivière-du-Nord", "Bahon", "Limbé", "Bas-Limbé", "Plaisance",
-            "Pilate", "Saint-Raphaël", "Dondon", "La Victoire", "Pignon", "Ranquitte",
-            // Nord-Est
-            "Fort-Liberté", "Perches", "Ferrier", "Ouanaminthe", "Capotille", "Mont-Organisé",
-            "Trou-du-Nord", "Caracol", "Sainte-Suzanne", "Grand-Bassin", "Terrier-Rouge", "Vallières",
-            "Carice", "Mombin-Crochu",
-            // Nord-Ouest
-            "Môle-Saint-Nicolas", "Baie-de-Henne", "Bombardopolis", "Jean-Rabel", "Port-de-Paix",
-            "Bassin-Bleu", "Chansolme", "Lapointe", "La Tortue", "Saint-Louis-du-Nord", "Anse-à-Foleur",
-            // Ouest
-            "Arcahaie", "Cabaret", "Croix-des-Bouquets", "Cornillon", "Fonds-Verrettes", "Ganthier",
-            "Thomazeau", "Anse-à-Galets", "Pointe-à-Raquette", "Léogâne", "Grand-Goâve", "Petit-Goâve",
-            "Port-au-Prince", "Carrefour", "Cité Soleil", "Delmas", "Gressier", "Kenscoff",
-            "Pétion-Ville", "Tabarre",
-            // Sud-Est
-            "Bainet", "Côtes-de-Fer", "Belle-Anse", "Anse-à-Pitres", "Grand-Gosier", "Thiotte",
-            "Jacmel", "Cayes-Jacmel", "La Vallée", "Marigot",
-            // Sud
-            "Aquin", "Cavaillon", "Saint-Louis-du-Sud", "Fond des Blancs", "Les Cayes", "Camp-Perrin",
-            "Chantal", "Île-à-Vache", "Maniche", "Torbeck", "Chardonnières", "Les Anglais", "Tiburon",
-            "Côteaux", "Port-à-Piment", "Roche-à-Bateaux", "Port-Salut", "Arniquet", "Saint-Jean-du-Sud"
-    );
+    public static final Map<String, List<String>> COMMUNES_BY_DEPARTEMENT = new LinkedHashMap<>();
+    static {
+        COMMUNES_BY_DEPARTEMENT.put("Artibonite", List.of(
+                "Dessalines", "Desdunes", "Grande-Saline", "Petite Rivière de l'Artibonite", "Gonaïves",
+                "Ennery", "L'Estère", "Gros-Morne", "Anse-Rouge", "Terre-Neuve", "Marmelade",
+                "Saint-Michel-de-l'Atalaye", "Saint-Marc", "Les Arcadins", "La Chapelle", "Liancourt",
+                "Verrettes", "Montrouis"));
+        COMMUNES_BY_DEPARTEMENT.put("Centre", List.of(
+                "Cerca-la-Source", "Thomassique", "Hinche", "Cerca-Carvajal", "Maïssade", "Thomonde",
+                "Lascahobas", "Baptiste", "Belladère", "Savanette", "Mirebalais", "Boucan-Carré", "Saut-d'Eau"));
+        COMMUNES_BY_DEPARTEMENT.put("Grand'Anse", List.of(
+                "Anse-d'Hainault", "Dame-Marie", "Les Irois", "Beaumont", "Corail", "Pestel", "Roseaux",
+                "Jérémie", "Abricots", "Bonbon", "Chambellan", "Marfranc", "Moron"));
+        COMMUNES_BY_DEPARTEMENT.put("Nippes", List.of(
+                "Anse-à-Veau", "Arnaud", "L'Asile", "Petit-Trou-de-Nippes", "Plaisance-du-Sud", "Baradères",
+                "Grand-Boucan", "Miragoâne", "Fonds-des-Nègres", "Paillant", "Petite-Rivière-de-Nippes"));
+        COMMUNES_BY_DEPARTEMENT.put("Nord", List.of(
+                "Acul-du-Nord", "Milot", "Plaine-du-Nord", "Borgne", "Port-Margot", "Cap-Haïtien", "Limonade",
+                "Quartier-Morin", "Grande-Rivière-du-Nord", "Bahon", "Limbé", "Bas-Limbé", "Plaisance",
+                "Pilate", "Saint-Raphaël", "Dondon", "La Victoire", "Pignon", "Ranquitte"));
+        COMMUNES_BY_DEPARTEMENT.put("Nord-Est", List.of(
+                "Fort-Liberté", "Perches", "Ferrier", "Ouanaminthe", "Capotille", "Mont-Organisé",
+                "Trou-du-Nord", "Caracol", "Sainte-Suzanne", "Grand-Bassin", "Terrier-Rouge", "Vallières",
+                "Carice", "Mombin-Crochu"));
+        COMMUNES_BY_DEPARTEMENT.put("Nord-Ouest", List.of(
+                "Môle-Saint-Nicolas", "Baie-de-Henne", "Bombardopolis", "Jean-Rabel", "Port-de-Paix",
+                "Bassin-Bleu", "Chansolme", "Lapointe", "La Tortue", "Saint-Louis-du-Nord", "Anse-à-Foleur"));
+        COMMUNES_BY_DEPARTEMENT.put("Ouest", List.of(
+                "Arcahaie", "Cabaret", "Croix-des-Bouquets", "Cornillon", "Fonds-Verrettes", "Ganthier",
+                "Thomazeau", "Anse-à-Galets", "Pointe-à-Raquette", "Léogâne", "Grand-Goâve", "Petit-Goâve",
+                "Port-au-Prince", "Carrefour", "Cité Soleil", "Delmas", "Gressier", "Kenscoff",
+                "Pétion-Ville", "Tabarre"));
+        COMMUNES_BY_DEPARTEMENT.put("Sud-Est", List.of(
+                "Bainet", "Côtes-de-Fer", "Belle-Anse", "Anse-à-Pitres", "Grand-Gosier", "Thiotte",
+                "Jacmel", "Cayes-Jacmel", "La Vallée", "Marigot"));
+        COMMUNES_BY_DEPARTEMENT.put("Sud", List.of(
+                "Aquin", "Cavaillon", "Saint-Louis-du-Sud", "Fond des Blancs", "Les Cayes", "Camp-Perrin",
+                "Chantal", "Île-à-Vache", "Maniche", "Torbeck", "Chardonnières", "Les Anglais", "Tiburon",
+                "Côteaux", "Port-à-Piment", "Roche-à-Bateaux", "Port-Salut", "Arniquet", "Saint-Jean-du-Sud"));
+    }
+
+    public static final List<String> COMMUNES = COMMUNES_BY_DEPARTEMENT.values().stream()
+            .flatMap(List::stream)
+            .toList();
 
     private static final Pattern DATE = Pattern.compile("(?<![\\d])(?:-)?(\\d{2})[\\-/.](\\d{2})[\\-/.](\\d{4})\\b");
 
@@ -84,19 +93,50 @@ public class HaitianCinParser {
      * la longueur du mot. Ex: "UUFST" (lu depuis "OUEST") -> "Ouest".
      */
     public static String correctAgainstKnownPlace(String word) {
+        return correctAgainstKnownPlace(word, allKnownPlaces());
+    }
+
+    /** Meme correction que {@link #correctAgainstKnownPlace(String)}, restreinte a un vocabulaire
+     * donne (ex: uniquement les communes) pour eviter qu'un mot mal lu ne soit rapproche a tort
+     * d'un departement alors qu'on sait deja qu'on lit une commune. */
+    public static String correctAgainstKnownPlace(String word, List<String> vocabulary) {
         if (word == null || word.isBlank()) return word;
+        String trimmed = word.trim();
         String best = null;
         int bestDistance = Integer.MAX_VALUE;
-        for (String known : allKnownPlaces()) {
-            int distance = levenshtein(word.toUpperCase(), known.toUpperCase());
+        for (String known : vocabulary) {
+            int distance = levenshtein(trimmed.toUpperCase(), known.toUpperCase());
             if (distance < bestDistance) {
                 bestDistance = distance;
                 best = known;
             }
         }
         // Tolerance proportionnelle a la longueur : jusqu'a ~30% de caracteres divergents.
-        int maxAllowed = Math.max(1, (int) Math.ceil(word.length() * 0.3));
-        return (best != null && bestDistance <= maxAllowed) ? best : word;
+        int maxAllowed = Math.max(1, (int) Math.ceil(trimmed.length() * 0.3));
+        return (best != null && bestDistance <= maxAllowed) ? best : trimmed;
+    }
+
+    /** Departement d'une commune reconnue (apres correction OCR), ou {@code null} si la commune
+     * n'a pas ete reconnue dans la bibliotheque de lieux. */
+    public static String departementForCommune(String communeCorrected) {
+        if (communeCorrected == null) return null;
+        for (Map.Entry<String, List<String>> entry : COMMUNES_BY_DEPARTEMENT.entrySet()) {
+            if (entry.getValue().contains(communeCorrected)) return entry.getKey();
+        }
+        return null;
+    }
+
+    /** Reconstruit un libelle "Departement X, Commune Y" en recalculant X a partir de Y via la
+     * bibliotheque de lieux (fiable) plutot qu'en faisant confiance a la lecture OCR du mot
+     * departement (bruitee) — ex: "Uuest" a cote de "Delmas" redevient "Ouest" sans jamais avoir
+     * a exposer/saisir un champ departement separe. */
+    static String canonicalizeLieu(String deptRaw, String communeRaw) {
+        String commune = correctAgainstKnownPlace(communeRaw, COMMUNES);
+        String dept = departementForCommune(commune);
+        if (dept == null) {
+            dept = correctAgainstKnownPlace(deptRaw, DEPARTEMENTS);
+        }
+        return "Département " + dept + ", Commune " + commune;
     }
 
     private static List<String> allKnownPlaces() {
@@ -148,7 +188,6 @@ public class HaitianCinParser {
         extractNationalite(flat, threshold, fields);
         extractNin(text, flat, threshold, fields);
         extractLieuNaissance(text, flat, threshold, fields);
-        extractDepartement(text, flat, threshold, fields);
         extractDatesByContext(text, threshold, fields);
 
         if (!fields.containsKey("nom") || !fields.containsKey("prenom")) {
@@ -175,7 +214,7 @@ public class HaitianCinParser {
     public int scoreCompleteness(Map<String, OcrFieldResult> fields) {
         String[] expected = {
                 "numero_carte", "prenom", "nom", "sexe", "nationalite", "date_naissance",
-                "lieu_naissance", "departement", "date_emission", "date_expiration", "nin", "nin_display"
+                "lieu_naissance", "date_emission", "date_expiration", "nin", "nin_display"
         };
         int score = 0;
         for (String key : expected) {
@@ -364,30 +403,29 @@ public class HaitianCinParser {
     }
 
     private void extractLieuNaissance(String text, String flat, double threshold, Map<String, OcrFieldResult> fields) {
-        Pattern p = Pattern.compile(
-                "(?i)(?:Lieu de Naissance|Kote ou f[eè]t|Naissance\\s*/\\s*Kote)[^\\n]{0,40}\\n?\\s*(.+?)(?=\\s+Date d|$)",
-                Pattern.DOTALL);
-        Matcher m = p.matcher(flat);
-        if (m.find()) {
-            String lieu = cleanLieu(m.group(1));
-            if (lieu.length() > 5) {
-                put(fields, "lieu_naissance", lieu, 85, threshold);
-            }
-        }
         Pattern deptCommune = Pattern.compile(
                 "(?i)D[eé]partement\\s+([A-Za-zÉÈÊËÀÂÄÙÛÜÔÖÎÏÇ'\\- ]+?),\\s*Commune\\s+(.+?)(?=\\s+Date|$)");
-        m = deptCommune.matcher(flat);
+        Matcher m = deptCommune.matcher(flat);
         if (m.find()) {
-            String lieu = "Département " + m.group(1).trim() + ", Commune " + cleanLieu(m.group(2));
-            put(fields, "lieu_naissance", lieu, 88, threshold);
+            put(fields, "lieu_naissance", canonicalizeLieu(m.group(1), cleanLieu(m.group(2))), 88, threshold);
             return;
         }
         Pattern messyLieu = Pattern.compile(
                 "(?i)(?:sr\\s+)?(?:D[eé]partement\\s+)?(Ouest|Artibonite|Centre|Nord|Sud|Nippes|Nord-Est|Nord-Ouest|Sud-Est|Grand'Anse),\\s*Commune\\s+([A-Za-zÉÈÊËÀÂÄ'\\- ]+?)(?=\\s+Date|\\s+°|$)");
         m = messyLieu.matcher(flat);
         if (m.find()) {
-            String lieu = "Département " + m.group(1).trim() + ", Commune " + cleanLieu(m.group(2));
-            put(fields, "lieu_naissance", lieu, 82, threshold);
+            put(fields, "lieu_naissance", canonicalizeLieu(m.group(1), cleanLieu(m.group(2))), 82, threshold);
+            return;
+        }
+        Pattern p = Pattern.compile(
+                "(?i)(?:Lieu de Naissance|Kote ou f[eè]t|Naissance\\s*/\\s*Kote)[^\\n]{0,40}\\n?\\s*(.+?)(?=\\s+Date d|$)",
+                Pattern.DOTALL);
+        m = p.matcher(flat);
+        if (m.find()) {
+            String lieu = canonicalizeLieuIfDeptCommune(cleanLieu(m.group(1)));
+            if (lieu.length() > 5) {
+                put(fields, "lieu_naissance", lieu, 85, threshold);
+            }
         }
     }
 
@@ -399,13 +437,12 @@ public class HaitianCinParser {
                 .trim();
     }
 
-    private void extractDepartement(String text, String flat, double threshold, Map<String, OcrFieldResult> fields) {
-        for (String dept : DEPARTEMENTS) {
-            if (flat.toLowerCase().contains(dept.toLowerCase())) {
-                put(fields, "departement", dept, 86, threshold);
-                return;
-            }
-        }
+    /** Applique {@link #canonicalizeLieu} lorsque le libelle libre reconnu suit deja le format
+     * "Departement X, Commune Y" ; sinon renvoie le texte tel quel (repli best-effort). */
+    private String canonicalizeLieuIfDeptCommune(String cleaned) {
+        Matcher m = Pattern.compile(
+                "(?i)D[eé]partement\\s+([A-Za-zÉÈÊËÀÂÄÙÛÜÔÖÎÏÇ'\\- ]+?),\\s*Commune\\s+(.+)$").matcher(cleaned);
+        return m.find() ? canonicalizeLieu(m.group(1), m.group(2)) : cleaned;
     }
 
     private void extractDatesByContext(String text, double threshold, Map<String, OcrFieldResult> fields) {

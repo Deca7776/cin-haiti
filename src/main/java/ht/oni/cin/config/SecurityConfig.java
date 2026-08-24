@@ -3,6 +3,7 @@ package ht.oni.cin.config;
 import ht.oni.cin.infrastructure.persistence.repository.CinApiClientRepository;
 import ht.oni.cin.security.DualAuthFilter;
 import ht.oni.cin.security.JwtValidator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -20,7 +21,10 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final CinProperties properties;
 
     @Bean
     public DualAuthFilter dualAuthFilter(CinApiClientRepository apiClientRepository, JwtValidator jwtValidator) {
@@ -58,8 +62,11 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Configurable (cin.integration.allowed-origins / ALLOWED_ORIGINS) plutôt que codé en dur :
+        // une app hôte tierce qui embarque ce microservice (widget iframe, appel API direct depuis
+        // son propre frontend) doit pouvoir déclarer son domaine sans toucher au code.
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000", "http://localhost:8080", "http://localhost:8081"));
+        config.setAllowedOrigins(properties.getIntegration().getAllowedOrigins());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

@@ -79,23 +79,10 @@ public class CinRoiOcrService {
                 fields.put("nin", OcrFieldResult.of("nin", CinFieldValueParser.normalizeNin(digits),
                         fields.get("nin_display").getConfidence(), threshold));
             }
-            if (fields.containsKey("lieu_naissance")) {
-                extractDepartementFromLieu(fields, threshold);
-            }
         } catch (Exception e) {
             log.warn("Extraction ROI échouée: {}", e.getMessage());
         }
         return fields;
-    }
-
-    private void extractDepartementFromLieu(Map<String, OcrFieldResult> fields, double threshold) {
-        String lieu = fields.get("lieu_naissance").getValue();
-        for (String dept : HaitianCinParser.DEPARTEMENTS) {
-            if (lieu.toLowerCase().contains(dept.toLowerCase())) {
-                fields.put("departement", OcrFieldResult.of("departement", dept, 86, threshold));
-                return;
-            }
-        }
     }
 
 }

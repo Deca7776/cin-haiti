@@ -18,7 +18,7 @@ import java.util.Map;
 public class OcrService {
 
     private static final int[] PSM_MODES = {6, 4, 3};
-    private static final int EXPECTED_CARD_FIELDS = 11;
+    private static final int EXPECTED_CARD_FIELDS = 10;
 
     private final CinProperties properties;
     private final HaitianCinParser haitianCinParser;
@@ -123,7 +123,7 @@ public class OcrService {
 
     private int countCardFields(Map<String, OcrFieldResult> fields) {
         String[] keys = {"numero_carte", "prenom", "nom", "sexe", "nationalite", "date_naissance",
-                "lieu_naissance", "departement", "date_emission", "date_expiration", "nin_display"};
+                "lieu_naissance", "date_emission", "date_expiration", "nin_display"};
         int n = 0;
         for (String k : keys) {
             if (fields.containsKey(k)) n++;

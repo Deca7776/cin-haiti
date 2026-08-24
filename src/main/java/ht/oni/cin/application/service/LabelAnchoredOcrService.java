@@ -7,9 +7,11 @@ import org.springframework.stereotype.Service;
 
 import java.awt.image.BufferedImage;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -59,6 +61,13 @@ public class LabelAnchoredOcrService {
     /** Nombre de lignes candidates sous le libelle a essayer avant d'abandonner (gere les
      * libelles bilingues etales sur 2 lignes, ex: "Date d'emission /" puis "Dat kat la fet"). */
     private static final int MAX_CANDIDATES = 3;
+    /** Distance verticale max entre deux lignes d'une meme valeur multi-lignes (fraction de
+     * hauteur carte) avant de considerer qu'on a quitte ce bloc de valeur. */
+    private static final double LINE_CONTINUATION_GAP = 0.05;
+    /** Champs dont la valeur peut s'etaler sur plusieurs lignes sous le libelle (ex: un prenom
+     * compose imprime "MARIE" puis "CLAUDE" sur 2 lignes) : toutes les lignes du bloc doivent
+     * etre concatenees plutot que de ne garder que la premiere. */
+    private static final Set<String> MULTI_LINE_FIELDS = Set.of("prenom", "nom");
 
     private final OcrEngine ocrEngine;
     private final ImageProcessingService imageProcessingService;
@@ -85,9 +94,6 @@ public class LabelAnchoredOcrService {
                             fields.get("nin_display").getConfidence(), threshold));
                 }
             }
-            if (fields.containsKey("lieu_naissance")) {
-                extractDepartementFromLieu(fields, threshold);
-            }
         } catch (Exception e) {
             log.warn("Extraction par libelle echouee: {}", e.getMessage());
         }
@@ -108,9 +114,15 @@ public class LabelAnchoredOcrService {
                 .filter(l -> l.y0() > label.y1() - 0.01)
                 .filter(l -> l.y0() - label.y1() < MAX_VALUE_GAP)
                 .filter(l -> Math.abs(l.x0() - label.x0()) < COLUMN_TOLERANCE)
+                .filter(l -> !isAnotherFieldLabel(field, l.text()))
                 .sorted((a, b) -> Double.compare(a.y0(), b.y0()))
                 .limit(MAX_CANDIDATES)
                 .toList();
+
+        if (MULTI_LINE_FIELDS.contains(field.key())) {
+            java.util.Optional<FoundValue> joined = joinContinuationLines(field, label, candidates);
+            if (joined.isPresent()) return joined;
+        }
 
         for (OcrLine candidate : candidates) {
             String value = CinFieldValueParser.clean(field.key(), candidate.text());
@@ -121,14 +133,41 @@ public class LabelAnchoredOcrService {
         return java.util.Optional.empty();
     }
 
-    private void extractDepartementFromLieu(Map<String, OcrFieldResult> fields, double threshold) {
-        String lieu = fields.get("lieu_naissance").getValue();
-        for (String dept : HaitianCinParser.DEPARTEMENTS) {
-            if (lieu.toLowerCase().contains(dept.toLowerCase())) {
-                fields.put("departement", OcrFieldResult.of("departement", dept, 86, threshold));
-                return;
+    /** Concatene les lignes consecutives sous le libelle tant qu'elles restent collees les unes
+     * aux autres (meme bloc de valeur) — un prenom ou nom compose est parfois imprime sur 2
+     * lignes sous son libelle bilingue ; s'arreter au premier candidat tronquait ces cas a un
+     * seul mot (ex: "MARIE" au lieu de "MARIE CLAUDE"). */
+    private java.util.Optional<FoundValue> joinContinuationLines(FieldLabel field, OcrLine label, List<OcrLine> candidates) {
+        List<String> parts = new ArrayList<>();
+        List<Double> scores = new ArrayList<>();
+        double previousY1 = label.y1();
+        for (OcrLine candidate : candidates) {
+            if (candidate.y0() - previousY1 > LINE_CONTINUATION_GAP) break;
+            String value = CinFieldValueParser.clean(field.key(), candidate.text());
+            if (value == null || value.isBlank()) {
+                if (parts.isEmpty()) continue;
+                break;
             }
+            parts.add(value);
+            scores.add(candidate.confidence());
+            previousY1 = candidate.y1();
         }
+        if (parts.isEmpty()) return java.util.Optional.empty();
+        String combined = String.join(" ", parts);
+        double avgConfidence = scores.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        return java.util.Optional.of(new FoundValue(combined, avgConfidence));
+    }
+
+    /** Exclut de la recherche de valeur toute ligne qui est elle-meme le libelle d'un autre champ
+     * (ex: "Nom / Siyati" juste sous "Prénom / Non") — sans ce garde-fou, un bloc multi-lignes
+     * pourrait deborder sur le champ suivant. */
+    private boolean isAnotherFieldLabel(FieldLabel field, String text) {
+        String normalized = normalize(text);
+        for (FieldLabel other : FIELD_LABELS) {
+            if (other.key().equals(field.key())) continue;
+            if (other.matcher().matcher(normalized).matches()) return true;
+        }
+        return false;
     }
 
     /** Majuscules + accents retires, pour un matching de libelle insensible a la casse et aux

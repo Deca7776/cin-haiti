@@ -62,6 +62,12 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    # Plafond CPU volontairement retire pour l'instant (21/08/2026) : applique a chaud, il a fait
+    # passer le chargement initial du modele PaddleOCR de <1min a >9min sans jamais finir (module
+    # bloquant au demarrage, avant meme le premier log uvicorn) -- pas verifie en conditions
+    # reelles avant d'etre pousse, donc retire plutot que laisse en l'etat. A reintroduire avec
+    # une valeur testee (et un start_period de healthcheck largement augmente en consequence)
+    # lors d'une prochaine session, pas en fin de journee sans temps de valider.
 
   cin-api:
     build: .
@@ -95,7 +101,14 @@ services:
       # /prepare et /layout font tourner PaddleOCR sur la carte entiere (pas juste un petit
       # recadrage) : sous charge CPU, ca peut depasser 30s (SocketTimeoutException observe le
       # 19/08/2026 alors que le service traitait la requete avec succes, juste trop lentement).
+      # TODO (session suivante) : redescendre cette valeur une fois le coupe-circuit "paddleocr"
+      # (cf. application.yml, OcrEngine) verifie en conditions reelles -- pousse le 21/08/2026
+      # mais jamais confirme sain apres redemarrage, laisse tel quel pour ne pas complexifier
+      # davantage un stack deja instable en fin de session.
       OCR_SERVICE_TIMEOUT_MS: "60000"
+      # Domaines autorises a appeler l'API depuis un navigateur (widget embarque en iframe ou
+      # appel fetch direct depuis le frontend d'une app hote tierce) — liste separee par virgules.
+      ALLOWED_ORIGINS: "http://localhost:5173,http://localhost:3000,http://localhost:8080,http://localhost:8081"
     ports:
       - "8080:8080"
     healthcheck:

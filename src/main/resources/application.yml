@@ -59,6 +59,8 @@ cin:
   instances:
     max-allowed: ${MAX_INSTANCES:5}
     registration-token: ${INSTANCE_REGISTRATION_TOKEN:change-me-in-production}
+  integration:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:8080,http://localhost:8081}
 
 management:
   endpoints:

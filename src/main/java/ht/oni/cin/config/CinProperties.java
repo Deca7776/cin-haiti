@@ -5,6 +5,8 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 @Getter
 @Setter
 @Configuration
@@ -18,6 +20,7 @@ public class CinProperties {
     private Jwt jwt = new Jwt();
     private Minio minio = new Minio();
     private Instances instances = new Instances();
+    private Integration integration = new Integration();
 
     @Getter
     @Setter
@@ -71,5 +74,17 @@ public class CinProperties {
     public static class Instances {
         private int maxAllowed = 5;
         private String registrationToken = "change-me";
+    }
+
+    /**
+     * Origines autorisées à appeler l'API depuis un navigateur (CORS) — configurable pour que
+     * ce microservice puisse être embarqué (widget en iframe, appel fetch direct) depuis le
+     * domaine d'une app hôte tierce, sans avoir à modifier le code pour chaque intégration.
+     */
+    @Getter
+    @Setter
+    public static class Integration {
+        private List<String> allowedOrigins = List.of(
+                "http://localhost:5173", "http://localhost:3000", "http://localhost:8080", "http://localhost:8081");
     }
 }

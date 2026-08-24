@@ -52,7 +52,7 @@ public class ScanResultsResponse {
                 .ocrSuccess(ocr != null && ocr.isSuccess())
                 .errorMessage(ocr != null ? ocr.getErrorMessage() : null)
                 .fieldsExtracted(extracted)
-                .fieldsExpected(11)
+                .fieldsExpected(10)
                 .fields(fields)
                 .photoBase64(photoBase64)
                 .build();
@@ -61,7 +61,7 @@ public class ScanResultsResponse {
     private static int countExtractedFields(OcrExtractionResult ocr) {
         if (ocr == null || ocr.getFields() == null) return 0;
         String[] keys = {"numero_carte", "prenom", "nom", "sexe", "nationalite", "date_naissance",
-                "lieu_naissance", "departement", "date_emission", "date_expiration", "nin_display"};
+                "lieu_naissance", "date_emission", "date_expiration", "nin_display"};
         int n = 0;
         for (String k : keys) {
             if (ocr.getFields().containsKey(k)) n++;

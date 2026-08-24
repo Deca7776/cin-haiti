@@ -132,6 +132,60 @@ UI : http://localhost:5173
 | POST | `/api/v1/scan/{id}/cancel` | EF-02 Annulation |
 | GET | `/api/v1/identites/{nin}` | EF-10 Export systèmes tiers |
 
+## Intégration dans une autre application
+
+Ce microservice est conçu pour être embarqué dans une app tierce (ex. un portail de paiement/gestion type EPS) de deux façons complémentaires.
+
+### 1. Widget embarqué (iframe)
+
+Chargez le frontend React dans une `<iframe>` avec le paramètre `embed=1` : l'entête et le pied de page propres au widget disparaissent (l'app hôte fournit déjà son propre chrome — sidebar, langue, avatar...), il ne reste que le flux Scan → Validation → Confirmation.
+
+```html
+<iframe
+  src="https://cin.mondomaine.ht/?embed=1&token=JWT_OPERATRICE"
+  style="width:100%; height:100%; border:0;"
+  title="Numérisation CIN">
+</iframe>
+```
+
+- `embed=1` — masque l'entête/pied de page du widget.
+- `token=...` — optionnel : si l'app hôte gère déjà l'émission du jeton JWT opératrice, on saute l'écran de connexion. Sans ce paramètre, le widget affiche son propre écran d'authentification (mode démo par défaut).
+
+Le widget notifie la page parente par `postMessage` à chaque étape clé du cycle de vie (`window.addEventListener('message', ...)`) :
+
+```js
+window.addEventListener('message', (e) => {
+  if (e.data?.source !== 'cin-haiti-widget') return
+  switch (e.data.type) {
+    case 'ready':     /* le widget a fini de charger */ break
+    case 'validated': /* e.data.payload = enregistrement CIN sauvegardé */ break
+    case 'cancelled': /* l'opératrice a annulé / fermé le widget */ break
+    case 'error':     /* e.data.payload.message = erreur affichée à l'opératrice */ break
+  }
+})
+```
+
+### 2. Appel direct de l'API REST
+
+Pour une intégration headless (l'app hôte construit son propre écran), consultez le Swagger (`/swagger-ui.html`) — flux : ouvrir une session → uploader l'image → valider → exporter via `GET /api/v1/identites/{nin}` avec une clé `X-API-Key`.
+
+### CORS
+
+Les origines autorisées à appeler l'API depuis un navigateur (widget en iframe sur un autre domaine, ou frontend hôte appelant directement l'API) se configurent via la variable d'environnement `ALLOWED_ORIGINS` (liste séparée par des virgules, cf. `docker-compose.yml`) — pas besoin de modifier le code pour ajouter le domaine d'une nouvelle app intégratrice.
+
+### Authentification opératrice (JWT)
+
+`JwtValidator` a deux modes, selon la config au démarrage :
+
+- **Démo/local (par défaut)** — sans `JWT_PUBLIC_KEY_PATH`, les jetons sont HMAC signés avec `JWT_DEV_SECRET`, obtenus via `GET /api/v1/dev/token`. Pratique pour développer sans IAM externe, **à ne jamais utiliser en production**.
+- **Production (IAM externe)** — dès que `JWT_PUBLIC_KEY_PATH` pointe vers la clé publique RSA (PEM) de l'app hôte, les jetons sont vérifiés en **RS256** avec cette clé : l'app hôte signe elle-même ses JWT opératrice avec sa propre IAM (clé privée qui ne quitte jamais l'hôte), ce microservice ne fait que vérifier la signature. `/api/v1/dev/token` se désactive automatiquement dans ce mode (403) pour éviter qu'un jeton de démo non reconnu par la production ne parte silencieusement dans une iframe.
+
+```bash
+JWT_PUBLIC_KEY_PATH=/etc/cin/iam-public-key.pem
+```
+
+Le sujet (`sub`) du JWT devient l'identifiant opératrice (`operatorId`) utilisé pour l'audit ; l'app hôte doit donc y placer un identifiant stable de son côté.
+
 ## Structure du projet
 
 ```
